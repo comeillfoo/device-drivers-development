@@ -1,7 +1,8 @@
 NAME=chr_comp
 MAKE=make
-nproc?=8
 KDIR?=/lib/modules/$(shell uname -r)/build
+# specify your number of logic cores
+nproc?=8
 
 obj-m += $(NAME).o
 $(NAME)-objs := src/_$(NAME).o
