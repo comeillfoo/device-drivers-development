@@ -1,8 +1,9 @@
-#include <linux/module.h> /* essential for modules */
-#include <linux/kernel.h> /* essential for KERNEL_INFO */
+#include <linux/module.h>  /* essential for modules' macros */
+#include <linux/kernel.h>  /* essential for KERNEL_INFO */
 
 #include <linux/proc_fs.h> /* essential for procfs */
-#include <linux/slab.h> /* essential for kmalloc, kfree */
+#include <linux/slab.h>    /* essential for kmalloc, kfree */
+#include <linux/cdev.h>    /* essential for dev_t */
 
 
 MODULE_LICENSE( "Dual MIT/GPL" );
@@ -10,11 +11,15 @@ MODULE_AUTHOR( "Lenar" );
 MODULE_AUTHOR( "Michael" );
 MODULE_DESCRIPTION( "Kernel module consisting of /dev/var2 which do some simple calculations and store interim results and /proc/var2 which only stores interim results from /dev/var2" );
 
-
 #define MOD_NAME "chr_comp"
+
+static dev_t first_dev_id;
 
 static int __init init_chr_comp( void ) {
   printk( KERN_INFO MOD_NAME ": module inited" );
+
+
+
   return 0;
 }
 
