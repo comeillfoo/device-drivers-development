@@ -6,6 +6,10 @@
 
 
 MODULE_LICENSE( "Dual MIT/GPL" );
+MODULE_AUTHOR( "Lenar" );
+MODULE_AUTHOR( "Michael" );
+MODULE_DESCRIPTION( "Kernel module consisting of /dev/var2 which do some simple calculations and store interim results and /proc/var2 which only stores interim results from /dev/var2" );
+
 
 #define MOD_NAME "chr_comp"
 
