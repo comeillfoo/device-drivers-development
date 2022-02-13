@@ -19,7 +19,7 @@ MODULE_DESCRIPTION( "Kernel module consisting of /dev/var2 which do some simple 
 
 static dev_t comp_first_dev_id;
 static u32   comp_dev_count = 1;
-static int   comp_major = 700, comp_minor = 0;
+static int   comp_major = 410, comp_minor = 0;
 static struct cdev* comp_cdev = NULL;
 
 static bool init_chr_dev( dev_t* first_dev_id, int major, int minor, u32 count, struct cdev* cdev, const char* name, const struct file_operations* fops );
