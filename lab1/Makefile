@@ -8,7 +8,7 @@ KDIR?=/lib/modules/$(shell uname -r)/build
 nproc?=8
 
 obj-m += $(NAME).o
-$(NAME)-objs := src/_$(NAME).o
+$(NAME)-objs := src/_$(NAME).o # add here additional object files for compiling
 
 all:
 	$(MAKE) -j $(nproc) -C $(KDIR) M=$(shell pwd) modules

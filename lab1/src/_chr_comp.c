@@ -17,34 +17,39 @@ MODULE_DESCRIPTION( "Kernel module consisting of /dev/var2 which do some simple 
 #define DEV_NAME  "/dev/"  COMP_NAME
 #define PROC_NAME "/proc/" COMP_NAME
 
-static dev_t comp_first_dev_id;
-static u32   comp_dev_count = 1;
-static int   comp_major = 410, comp_minor = 0;
-static struct cdev* comp_cdev = NULL;
 
-static bool init_chr_dev( dev_t* first_dev_id, int major, int minor, u32 count, struct cdev* cdev, const char* name, const struct file_operations* fops );
-static bool cleanup_chr_dev( struct cdev* cdev, dev_t* first_dev_id, u32 count );
+static bool dev_create( dev_t* first_dev_id, int major, int minor, u32 count, struct cdev* cdev, const char* name, const struct file_operations* fops );
+static bool dev_remove( struct cdev* cdev, dev_t* first_dev_id, u32 count );
+static int dev_var2_open( struct inode* ptr_inode, struct file* ptr_file );
+static ssize_t dev_var2_read( struct file* ptr_file, char __user* usr_buf, size_t length, loff_t* ptr_offset );
+static ssize_t dev_var2_write( struct file* ptr_file, const char __user* usr_buf, size_t length, loff_t* ptr_offset );
+static int dev_var2_release( struct inode* ptr_inode, struct file* ptr_file );
 
-static struct proc_dir_entry* proc_var2_entry = NULL;
+
+static dev_t dev_var2_first_device_id;
+static u32   dev_var2_count = 1;
+static int   dev_var2_major = 410, dev_var2_minor = 0;
+static struct cdev* dev_var2_cdev = NULL;
+static const struct file_operations dev_var2_fops = {
+  .owner   = THIS_MODULE,
+  .open    = dev_var2_open,
+  .read    = dev_var2_read,
+  .write   = dev_var2_write,
+  .release = dev_var2_release
+};
+
 
 static int proc_var2_open( struct inode* ptr_inode, struct file* ptr_file );
 static ssize_t proc_var2_read( struct file* ptr_file, char __user* usr_buf, size_t length, loff_t* ptr_offset );
 static ssize_t proc_var2_write( struct file* ptr_file, const char __user* usr_buf, size_t length, loff_t* ptr_offset );
 static int proc_var2_release( struct inode* ptr_inode, struct file* ptr_file );
 
+static struct proc_dir_entry* proc_var2_entry = NULL;
 static const struct proc_ops proc_var2_ops = {
   .proc_open    = proc_var2_open,
   .proc_read    = proc_var2_read,
   .proc_write   = proc_var2_write,
   .proc_release = proc_var2_release
-};
-
-static const struct file_operations comp_fops = {
-  .owner   = THIS_MODULE,
-  .open    = proc_var2_open,
-  .read    = proc_var2_read,
-  .write   = proc_var2_write,
-  .release = proc_var2_release
 };
 
 
@@ -53,7 +58,7 @@ static int __init init_chr_comp( void ) {
 
   proc_var2_entry = proc_create( COMP_NAME, 0444, NULL, &proc_var2_ops ); // 0444 -> r--r--r--
 
-  init_chr_dev( &comp_first_dev_id, comp_major, comp_minor, comp_dev_count, comp_cdev, COMP_NAME, &comp_fops );
+  dev_create( &dev_var2_first_device_id, dev_var2_major, dev_var2_minor, dev_var2_count, dev_var2_cdev, COMP_NAME, &dev_var2_fops );
 
   return 0;
 }
@@ -63,7 +68,7 @@ static void __exit cleanup_chr_comp( void ) {
 
   proc_remove( proc_var2_entry );
 
-  cleanup_chr_dev( comp_cdev, &comp_first_dev_id, comp_dev_count );
+  dev_remove( dev_var2_cdev, &dev_var2_first_device_id, dev_var2_count );
 }
 
 module_init( init_chr_comp );
@@ -90,7 +95,8 @@ static int proc_var2_release( struct inode* ptr_inode, struct file* ptr_file ) {
   return 0;
 }
 
-static bool init_chr_dev( dev_t* first_dev_id, int major, int minor, u32 count, struct cdev* cdev, const char* name, const struct file_operations* fops ) {
+
+static bool dev_create( dev_t* first_dev_id, int major, int minor, u32 count, struct cdev* cdev, const char* name, const struct file_operations* fops ) {
   *first_dev_id = MKDEV( major, minor );
   register_chrdev_region( *first_dev_id, count, name );
 
@@ -102,10 +108,26 @@ static bool init_chr_dev( dev_t* first_dev_id, int major, int minor, u32 count, 
   return true;
 }
 
-static bool cleanup_chr_dev( struct cdev* cdev, dev_t* first_dev_id, u32 count ) {
+static bool dev_remove( struct cdev* cdev, dev_t* first_dev_id, u32 count ) {
   if ( cdev )
     cdev_del( cdev );
 
   unregister_chrdev_region( *first_dev_id, count );
   return true;
+}
+
+static int dev_var2_open( struct inode* ptr_inode, struct file* ptr_file ) {
+  return proc_var2_open( ptr_inode, ptr_file );
+}
+
+static ssize_t dev_var2_read( struct file* ptr_file, char __user* usr_buf, size_t length, loff_t* ptr_offset ) {
+  return proc_var2_read( ptr_file, usr_buf, length, ptr_offset );
+}
+
+static ssize_t dev_var2_write( struct file* ptr_file, const char __user* usr_buf, size_t length, loff_t* ptr_offset ) {
+  return proc_var2_write( ptr_file, usr_buf, length, ptr_offset );
+}
+
+static int dev_var2_release( struct inode* ptr_inode, struct file* ptr_file ) {
+  return proc_var2_release( ptr_inode, ptr_file );
 }
