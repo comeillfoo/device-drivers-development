@@ -20,10 +20,10 @@ unload:
 	rmmod  $(NAME) -f
 
 mkdev:
-	sudo mknod /dev/$(DEV_NAME) c $(DEV_MAJOR) $(DEV_MINOR) && sudo chmod a+rw /dev/$(DEV_NAME)
+	mknod /dev/$(DEV_NAME) c $(DEV_MAJOR) $(DEV_MINOR) && sudo chmod a+rw /dev/$(DEV_NAME)
 
 rmdev:
-	sudo rm -f /dev/$(DEV_NAME)
+	rm -f /dev/$(DEV_NAME)
 
 clean:
 	$(MAKE) -j 8 -C $(KDIR) M=$(shell pwd) clean

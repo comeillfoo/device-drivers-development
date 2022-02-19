@@ -17,6 +17,11 @@ MODULE_DESCRIPTION( "Kernel module consisting of /dev/var2 which do some simple 
 #define DEV_NAME  "/dev/"  COMP_NAME
 #define PROC_NAME "/proc/" COMP_NAME
 
+#define OUTCOMES_LENGTH (5)
+
+static int outcomes[ OUTCOMES_LENGTH ];
+static size_t dev_idx = 0;
+static size_t proc_idx = 0;
 
 static bool dev_create( dev_t* first_dev_id, int major, int minor, u32 count, struct cdev* cdev, const char* name, const struct file_operations* fops );
 static bool dev_remove( struct cdev* cdev, dev_t* first_dev_id, u32 count );
@@ -81,13 +86,16 @@ static int proc_var2_open( struct inode* ptr_inode, struct file* ptr_file ) {
 }
 
 static ssize_t proc_var2_read( struct file* ptr_file, char __user* usr_buf, size_t length, loff_t* ptr_offset ) {
+  if ( *ptr_offset > 0 ) return 0;
   *ptr_offset += length;
+
+  printk( KERN_INFO MOD_NAME ": proc_var2_read: %d\n", outcomes[ proc_idx ] );
+  proc_idx = ( proc_idx + 1 ) % OUTCOMES_LENGTH;
   return length;
 }
 
 static ssize_t proc_var2_write( struct file* ptr_file, const char __user* usr_buf, size_t length, loff_t* ptr_offset ) {
-  *ptr_offset += length;
-  return length;
+  return -EINVAL;
 }
 
 static int proc_var2_release( struct inode* ptr_inode, struct file* ptr_file ) {
@@ -117,17 +125,52 @@ static bool dev_remove( struct cdev* cdev, dev_t* first_dev_id, u32 count ) {
 }
 
 static int dev_var2_open( struct inode* ptr_inode, struct file* ptr_file ) {
-  return proc_var2_open( ptr_inode, ptr_file );
+  printk( KERN_INFO MOD_NAME ": file " DEV_NAME " opened\n" );
+  return 0;
 }
 
 static ssize_t dev_var2_read( struct file* ptr_file, char __user* usr_buf, size_t length, loff_t* ptr_offset ) {
-  return proc_var2_read( ptr_file, usr_buf, length, ptr_offset );
+  size_t count = 0;
+  if ( *ptr_offset > 0 ) return 0;
+
+  count = snprintf( usr_buf, length, "%d\n", outcomes[ dev_idx ] );
+  *ptr_offset += count;
+  dev_idx = ( dev_idx + 1 ) % OUTCOMES_LENGTH;
+  printk( KERN_INFO MOD_NAME ": dev_var2_read: dev_idx = %zu, count = %zu, length = %zu\n", dev_idx, count, length );
+  return count;
 }
 
+#define defop( name, op ) static int name( int a, int b ) { return a op b; }
+
+defop( sum, + )
+defop( sub, - )
+defop( mul, * )
+defop( div, / )
+
+typedef int (op)(int, int);
+op* callbacks[] = {
+  [ '+' ] = sum,
+  [ '-' ] = sub,
+  [ '/' ] = div,
+  [ '*' ] = mul
+};
+
+
 static ssize_t dev_var2_write( struct file* ptr_file, const char __user* usr_buf, size_t length, loff_t* ptr_offset ) {
-  return proc_var2_write( ptr_file, usr_buf, length, ptr_offset );
+  int a = 0, b = 0;
+  char c = '+';
+  size_t count = sscanf( usr_buf, "%d%c%d", &a, &c, &b );
+
+  printk( KERN_INFO MOD_NAME ": dev_var2_write: count = %zu, a = %d, b = %d, c = %c, length = %zu\n", count, a, b, c, length );
+  if ( count == 3 ) {
+    outcomes[ dev_idx ] = callbacks[ ( size_t ) c ]( a, b );
+    dev_idx = ( dev_idx + 1 ) % OUTCOMES_LENGTH;
+    return length;
+  }
+  return -EINVAL;
 }
 
 static int dev_var2_release( struct inode* ptr_inode, struct file* ptr_file ) {
-  return proc_var2_release( ptr_inode, ptr_file );
+  printk( KERN_INFO MOD_NAME ": file " DEV_NAME " closed\n" );
+  return 0;
 }
