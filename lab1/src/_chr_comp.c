@@ -130,14 +130,20 @@ static int dev_var2_open( struct inode* ptr_inode, struct file* ptr_file ) {
 }
 
 static ssize_t dev_var2_read( struct file* ptr_file, char __user* usr_buf, size_t length, loff_t* ptr_offset ) {
-  size_t count = 0;
-  if ( *ptr_offset > 0 ) return 0;
+  // size_t count = 0;
+  // if ( *ptr_offset > 0 ) return 0;
 
-  count = snprintf( usr_buf, length, "%d\n", outcomes[ dev_idx ] );
-  *ptr_offset += count;
+  // count = snprintf( usr_buf, length, "%d\n", outcomes[ dev_idx ] );
+  // *ptr_offset += count;
+  // dev_idx = ( dev_idx + 1 ) % OUTCOMES_LENGTH;
+  // printk( KERN_INFO MOD_NAME ": dev_var2_read: dev_idx = %zu, count = %zu, length = %zu\n", dev_idx, count, length );
+  // return count;
+  if ( *ptr_offset > 0 ) return 0;
+  *ptr_offset += length;
+
+  printk( KERN_INFO MOD_NAME ": dev_var2_read: %d\n", outcomes[ ( dev_idx - 1 ) % OUTCOMES_LENGTH ] );
   dev_idx = ( dev_idx + 1 ) % OUTCOMES_LENGTH;
-  printk( KERN_INFO MOD_NAME ": dev_var2_read: dev_idx = %zu, count = %zu, length = %zu\n", dev_idx, count, length );
-  return count;
+  return length;
 }
 
 #define defop( name, op ) static int name( int a, int b ) { return a op b; }
