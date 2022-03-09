@@ -45,8 +45,26 @@ sudo make rmdev # удалить созданный узел устройств�
 ```
 echo "-3+8" > /dev/var2
 cat /dev/var2
+sudo dmesg
 -------------
-5
+[ 2675.645038] chr_comp: file /dev/var2 opened
+[ 2675.645067] chr_comp: dev_var2_write: count = 3, a = -3, b = 8, c = +, length = 5
+[ 2675.645075] chr_comp: file /dev/var2 closed
+[ 2680.093943] chr_comp: file /dev/var2 opened
+[ 2680.093963] chr_comp: dev_var2_read: 5
+[ 2680.126896] chr_comp: file /dev/var2 closed
+```
+```
+echo "1/0" > /dev/var2
+cat /dev/var2
+sudo dmesg
+-------------
+[ 2531.322739] chr_comp: file /dev/var2 opened
+[ 2531.322768] chr_comp: dev_var2_write: count = 3, a = 1, b = 0, c = /, length = 4
+[ 2531.332597] chr_comp: file /dev/var2 closed
+[ 2638.040875] chr_comp: file /dev/var2 opened
+[ 2638.040887] chr_comp: dev_var2_read: 0
+[ 2638.089075] chr_comp: file /dev/var2 closed
 ```
 
 ### Пример работы с `/proc/var2`

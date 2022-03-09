@@ -110,19 +110,24 @@ static int proc_var2_release( struct inode* ptr_inode, struct file* ptr_file ) {
 static bool dev_create( dev_t* first_dev_id, int major, int minor, u32 count, struct cdev* cdev, const char* name, const struct file_operations* fops ) {
   *first_dev_id = MKDEV( major, minor );
   if ( register_chrdev_region( *first_dev_id, count, name ) ) {
-    unregister_chrdev_region( *first_dev_id, count ); // void can't check for the errors
+    // unregister_chrdev_region( *first_dev_id, count ); // void can't check for the errors
     return false;
   }
 
   cdev = cdev_alloc();
-  if ( cdev == NULL )
+  if ( cdev == NULL ) {
+    unregister_chrdev_region( *first_dev_id, count ); // void can't check for the errors
     return false;
+  }
   
   cdev_init( cdev, fops );
-  if ( cdev == NULL || fops == NULL )
+  if ( cdev == NULL || fops == NULL ) {
+    unregister_chrdev_region( *first_dev_id, count ); // void can't check for the errors
     return false;
+  }
 
   if ( cdev_add( cdev, *first_dev_id, count ) == -1 ) {
+    unregister_chrdev_region( *first_dev_id, count ); // void can't check for the errors
     cdev_del( cdev );
     return false;
   }
