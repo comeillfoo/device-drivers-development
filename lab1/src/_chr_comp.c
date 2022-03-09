@@ -62,8 +62,11 @@ static int __init init_chr_comp( void ) {
   printk( KERN_INFO MOD_NAME ": module inited" );
 
   proc_var2_entry = proc_create( COMP_NAME, 0444, NULL, &proc_var2_ops ); // 0444 -> r--r--r--
+  if ( proc_var2_entry == NULL )
+    return -EINVAL;
 
-  dev_create( &dev_var2_first_device_id, dev_var2_major, dev_var2_minor, dev_var2_count, dev_var2_cdev, COMP_NAME, &dev_var2_fops );
+  if ( dev_create( &dev_var2_first_device_id, dev_var2_major, dev_var2_minor, dev_var2_count, dev_var2_cdev, COMP_NAME, &dev_var2_fops ) == false ) 
+    return -EINVAL;
 
   return 0;
 }
@@ -106,21 +109,32 @@ static int proc_var2_release( struct inode* ptr_inode, struct file* ptr_file ) {
 
 static bool dev_create( dev_t* first_dev_id, int major, int minor, u32 count, struct cdev* cdev, const char* name, const struct file_operations* fops ) {
   *first_dev_id = MKDEV( major, minor );
-  register_chrdev_region( *first_dev_id, count, name );
+  if ( register_chrdev_region( *first_dev_id, count, name ) ) {
+    unregister_chrdev_region( *first_dev_id, count ); // void can't check for the errors
+    return false;
+  }
 
   cdev = cdev_alloc();
+  if ( cdev == NULL )
+    return false;
   
   cdev_init( cdev, fops );
-  cdev_add( cdev, *first_dev_id, count );
+  if ( cdev == NULL || fops == NULL )
+    return false;
 
+  if ( cdev_add( cdev, *first_dev_id, count ) == -1 ) {
+    cdev_del( cdev );
+    return false;
+  }
+  
   return true;
 }
 
 static bool dev_remove( struct cdev* cdev, dev_t* first_dev_id, u32 count ) {
   if ( cdev )
-    cdev_del( cdev );
+    cdev_del( cdev ); // void can't check for errors
 
-  unregister_chrdev_region( *first_dev_id, count );
+  unregister_chrdev_region( *first_dev_id, count ); // void can't check for the errors
   return true;
 }
 
@@ -168,6 +182,10 @@ static ssize_t dev_var2_write( struct file* ptr_file, const char __user* usr_buf
   size_t count = sscanf( usr_buf, "%d%c%d", &a, &c, &b );
 
   printk( KERN_INFO MOD_NAME ": dev_var2_write: count = %zu, a = %d, b = %d, c = %c, length = %zu\n", count, a, b, c, length );
+  
+  if ( b == 0 && c == '/' )
+    return -EINVAL;
+
   if ( count == 3 ) {
     outcomes[ dev_idx ] = callbacks[ ( size_t ) c ]( a, b );
     dev_idx = ( dev_idx + 1 ) % OUTCOMES_LENGTH;
