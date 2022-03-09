@@ -121,11 +121,6 @@ static bool dev_create( dev_t* first_dev_id, int major, int minor, u32 count, st
   }
   
   cdev_init( cdev, fops );
-  if ( cdev == NULL || fops == NULL ) {
-    unregister_chrdev_region( *first_dev_id, count ); // void can't check for the errors
-    return false;
-  }
-
   if ( cdev_add( cdev, *first_dev_id, count ) == -1 ) {
     unregister_chrdev_region( *first_dev_id, count ); // void can't check for the errors
     cdev_del( cdev );
