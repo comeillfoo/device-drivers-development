@@ -1,0 +1,6 @@
+*
+!Makefile
+!inc
+!inc/*.h
+!src
+!src/*.c
