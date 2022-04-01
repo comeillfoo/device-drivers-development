@@ -190,14 +190,12 @@ int mydisk_init(void)
 	return MEMSIZE;	
 }
 
-static int rb_transfer(struct request *req)
-{
-	int dir = rq_data_dir(req);
+static int rb_transfer( struct request* req, unsigned int* nr_bytes ) {
+	int dir = rq_data_dir( req );
 	int ret = 0;
-	/*starting sector
-	 *where to do operation*/
-	sector_t start_sector = blk_rq_pos(req);
-	unsigned int sector_cnt = blk_rq_sectors(req); /* no of sector on which opn to be done*/
+	/* starting sector where to do operation */
+	sector_t start_sector = blk_rq_pos( req );
+	unsigned int sector_cnt = blk_rq_sectors( req ); /* no of sector on which opn to be done*/
 	struct bio_vec bv;
 	#define BV_PAGE(bv) ((bv).bv_page)
 	#define BV_OFFSET(bv) ((bv).bv_offset)
@@ -221,39 +219,55 @@ static int rb_transfer(struct request *req)
 		(unsigned long long)(start_sector), (unsigned long long) \
 		(sector_offset), buffer, sectors);
 		
-		if (dir == WRITE) /* Write to the device */
-		{
+		*nr_bytes = sectors * MDISK_SECTOR_SIZE;
+		if (dir == WRITE) { /* Write to the device */
 			memcpy((device.data)+((start_sector+sector_offset)*MDISK_SECTOR_SIZE)\
-			,buffer,sectors*MDISK_SECTOR_SIZE);		
-		}
-		else /* Read from the device */
-		{
+			,buffer, *nr_bytes );		
+		}	else { /* Read from the device */
 			memcpy(buffer,(device.data)+((start_sector+sector_offset)\
-			*MDISK_SECTOR_SIZE),sectors*MDISK_SECTOR_SIZE);	
+			*MDISK_SECTOR_SIZE), *nr_bytes );	
 		}
 		sector_offset += sectors;
 	}
 	
-	if (sector_offset != sector_cnt)
-	{
+	if (sector_offset != sector_cnt) {
 		printk(KERN_ERR "mydisk: bio info doesn't match with the request info");
 		ret = -EIO;
 	}
 	return ret;
 }
-/** request handling function**/
+
+/* request handling function */
 /**
  * Changing according to blk multi-queue feature
  */
-static void dev_request(struct request_queue *q)
-{
-	struct request *req;
-	int error;
-	while ( (req = blk_fetch_request( q )) != NULL ) { /*check active request for data transfer */
-		error = rb_transfer( req ); // transfer the request for operation
-		__blk_end_request_all( req, error ); // end the request
-	}
+static blk_status_t dev_request( struct blk_mq_hw_ctx* hctx, const struct blk_mq_queue_data* bd ) {
+	blk_status_t status = BLK_STS_OK;
+	unsigned int nr_bytes = 0;
+
+	struct request* req = bd->rq;
+	switch ( rb_transfer( req, &nr_bytes ) ) {
+		case -EIO:
+			{ status = BLK_STS_IOERR; } break;
+		case 0:
+		default:
+			{ status = BLK_STS_OK; } break;
+	};
+
+#if 0 //simply and can be called from proprietary module 
+  blk_mq_end_request(rq, status);
+#else //can set real processed bytes count 
+  if ( blk_update_request( req, status, nr_bytes ) ) //GPL-only symbol
+		BUG();
+  __blk_mq_end_request( req, status );
+#endif
+
+	return BLK_STS_OK;
 }
+
+static struct blk_mq_ops my_queue_ops = {
+   .queue_rq = dev_request,
+};
 
 int device_setup(void) {
 	mydisk_init();
@@ -294,7 +308,7 @@ int device_setup(void) {
 	device.gd->private_data = &device;
 	device.gd->queue = device.queue;
 	device.size = mydisk_init();
-	printk(KERN_INFO"THIS IS DEVICE SIZE %d",device.size);	
+	printk( KERN_INFO "THIS IS DEVICE SIZE %zu", device.size );	
 	
 	/* Use buffer-safe functions */
 	snprintf( ((device.gd)->disk_name), DISK_NAME_LEN, "mydisk" );
