@@ -151,7 +151,8 @@ void copy_mbr_n_br(u8 *disk) {
 struct mydiskdrive_dev {
 	size_t size;
 	u8* data;
-	spinlock_t lock;
+	atomic_t nr_users;
+	// spinlock_t lock;
 	struct blk_mq_tag_set tag_set;
 	struct request_queue* queue;
 	struct gendisk* gd;
@@ -163,6 +164,13 @@ struct mydiskdrive_dev *x;
 static int my_open(struct block_device *x, fmode_t mode)	 
 {
 	int ret=0;
+	struct mydiskdrive_dev* dev = x->bd_disk->private_data;
+	if ( dev == NULL ) {
+		printk(KERN_WARNING "mydiskdrive: invalid disk private_data\n");
+    return -ENXIO;
+	}
+
+	atomic_inc(&dev->nr_users);
 	printk(KERN_INFO "mydiskdrive : open \n");
 
 	return ret;
@@ -171,7 +179,11 @@ static int my_open(struct block_device *x, fmode_t mode)
 
 static void my_release(struct gendisk *disk, fmode_t mode)
 {
-	printk(KERN_INFO "mydiskdrive : closed \n");
+	struct mydiskdrive_dev* dev = disk->private_data;
+	if (dev) {
+		atomic_dec(&dev->nr_users);
+		printk(KERN_INFO "mydiskdrive : closed \n");
+	} else printk(KERN_WARNING "mydiskdrive: invalid disk private_data\n");
 }
 
 static struct block_device_operations fops =
@@ -183,11 +195,16 @@ static struct block_device_operations fops =
 
 int mydisk_init(void)
 {
+	device.size = MEMSIZE;
 	(device.data) = vmalloc(MEMSIZE * MDISK_SECTOR_SIZE);
+	if ( device.data == NULL ) {
+		printk(KERN_WARNING "mydiskdrive: vmalloc failure.\n");
+		return -ENOMEM;
+	}
 	/* Setup its partition table */
 	copy_mbr_n_br(device.data);
 
-	return MEMSIZE;	
+	return 0;	
 }
 
 static int rb_transfer( struct request* req, unsigned int* nr_bytes ) {
@@ -205,6 +222,7 @@ static int rb_transfer( struct request* req, unsigned int* nr_bytes ) {
 	unsigned int sectors;
 	u8 *buffer;
 	sector_offset = 0;
+
 	rq_for_each_segment(bv, req, iter)
 	{
 		buffer = page_address(BV_PAGE(bv)) + BV_OFFSET(bv);
@@ -270,21 +288,24 @@ static struct blk_mq_ops my_queue_ops = {
 };
 
 int device_setup(void) {
-	mydisk_init();
 
 	/* Register block device */
 	c = register_blkdev( c, "mydisk" );// major no. allocation
 	printk(KERN_ALERT "Major Number is : %d",c);
 
-	spin_lock_init( &device.lock ); // lock for queue
+	if ( mydisk_init() )
+		return -ENOMEM; 
+
+	// spin_lock_init( &device.lock ); // lock for queue
 
 	/* Initialize tag set */
 	device.tag_set.ops = &my_queue_ops;
 	device.tag_set.nr_hw_queues = 1;
 	device.tag_set.queue_depth = 128;
 	device.tag_set.numa_node = NUMA_NO_NODE;
-	device.tag_set.cmd_size = 0;
+	device.tag_set.cmd_size = sizeof( struct mydiskdrive_dev );
 	device.tag_set.flags = BLK_MQ_F_SHOULD_MERGE;
+	device.tag_set.driver_data = &device;
 	if ( blk_mq_alloc_tag_set( &(device.tag_set) ) )
 		return -ENOMEM;
 
@@ -295,7 +316,8 @@ int device_setup(void) {
 		return -ENOMEM;
 	} 
 
-	blk_queue_logical_block_size( device.queue, MDISK_SECTOR_SIZE );
+	// blk_queue_logical_block_size( device.queue, MDISK_SECTOR_SIZE );
+	device.queue->queuedata = &device;
 
 	/* Initialize gendisk */
 	// can't understand why we have here 8 minors
@@ -307,7 +329,6 @@ int device_setup(void) {
 	device.gd->fops = &fops;
 	device.gd->private_data = &device;
 	device.gd->queue = device.queue;
-	device.size = mydisk_init();
 	printk( KERN_INFO "THIS IS DEVICE SIZE %zu", device.size );	
 	
 	/* Use buffer-safe functions */
@@ -323,7 +344,7 @@ int device_setup(void) {
 static int __init mydiskdrive_init(void)
 {	
 	int ret=0;
-	device_setup();
+	ret = device_setup();
 	
 	return ret;
 }
@@ -338,12 +359,13 @@ void __exit mydiskdrive_exit(void)
 	del_gendisk(device.gd);
 	put_disk(device.gd);
 
-	blk_mq_free_tag_set( &(device.tag_set) );
-
 	blk_cleanup_queue( device.queue );
 
-	unregister_blkdev( c, "mydisk" );
-	mydisk_cleanup();	
+	blk_mq_free_tag_set( &(device.tag_set) );
+
+	mydisk_cleanup();
+
+	unregister_blkdev( c, "mydisk" );	
 }
 
 module_init(mydiskdrive_init);
