@@ -14,7 +14,7 @@ clean:
 	make -j $(nproc) -C $(KDIR) M=$(shell pwd) clean
 
 do:
-	sudo insmod main.ko
+	sudo insmod $(NAME).ko
 
 rm:
-	sudo rmmod main.ko
+	sudo rmmod $(NAME).ko
