@@ -93,13 +93,10 @@ static PartTable def_part_table = {
                 .end_cyl =  0x9F,
                 .abs_start_sec =  0xF000,
                 .sec_in_part =  0xA000 //20Mbyte
-        },
-        {
-
         }
 };
 
-static unsigned int def_log_part_br_abs_start_sector[] = {0xF000, 0xA000};
+static unsigned int def_log_part_br_abs_start_sector[] = {0xF000, 0x14000};
 static const PartTable def_log_part_table[] = {
         {
                 {
@@ -160,7 +157,6 @@ static void copy_br(u8 *disk, int abs_start_sector, const PartTable *part_table)
 
 void copy_mbr_n_br(u8 *disk) {
     int i;
-
     copy_mbr(disk);
     for (i = 0; i < ARRAY_SIZE(def_log_part_table); i++) {
         copy_br(disk, def_log_part_br_abs_start_sector[i], &def_log_part_table[i]);
@@ -313,7 +309,7 @@ static struct blk_mq_ops my_queue_ops = {
 int device_setup(void) {
 
     /* Register block device */
-    c = register_blkdev(c, "mydisk");// major no. allocation
+    c = register_blkdev(c, "my_disk");// major no. allocation
     printk(KERN_ALERT
     "Major Number is : %d", c);
 
@@ -357,7 +353,7 @@ int device_setup(void) {
     "THIS IS DEVICE SIZE %zu", device.size );
 
     /* Use buffer-safe functions */
-    snprintf(((device.gd)->disk_name), DISK_NAME_LEN, "mydisk");
+    snprintf(((device.gd)->disk_name), DISK_NAME_LEN, "my_disk");
 
     set_capacity(device.gd, device.size);
 
@@ -366,31 +362,26 @@ int device_setup(void) {
     return 0;
 }
 
-static int __init mydiskdrive_init(void) {
+static int __init my_disk_drive_init(void) {
     int ret = 0;
     ret = device_setup();
-
     return ret;
 }
 
-void mydisk_cleanup(void) {
+void my_disk_cleanup(void) {
     vfree(device.data);
 }
 
 void __exit my_disk_drive_exit(void) {
     del_gendisk(device.gd);
     put_disk(device.gd);
-
     blk_cleanup_queue(device.queue);
-
     blk_mq_free_tag_set(&(device.tag_set));
-
-    mydisk_cleanup();
-
-    unregister_blkdev(c, "mydisk");
+    my_disk_cleanup();
+    unregister_blkdev(c, "my_disk");
 }
 
-module_init(mydiskdrive_init);
+module_init(my_disk_drive_init);
 module_exit(my_disk_drive_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Author");
