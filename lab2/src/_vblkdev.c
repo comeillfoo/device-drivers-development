@@ -309,7 +309,7 @@ static struct blk_mq_ops my_queue_ops = {
 int device_setup(void) {
 
     /* Register block device */
-    major = register_blkdev(c, "my_disk");// major no. allocation
+    major = register_blkdev( major, "my_disk");// major no. allocation
 
     if(major <= 0) {
         printk(KERN_WARNING "my_disk: unable to get major number\n");
@@ -387,7 +387,7 @@ void __exit my_disk_drive_exit(void) {
     blk_cleanup_queue(device.queue);
     blk_mq_free_tag_set(&(device.tag_set));
     my_disk_cleanup();
-    unregister_blkdev(c, "my_disk");
+    unregister_blkdev( major, "my_disk");
 }
 
 module_init(my_disk_drive_init);
