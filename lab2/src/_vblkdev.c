@@ -13,7 +13,7 @@
 
 #define MEMSIZE 0x19000 // Size of Ram disk in sectors
 
-int c = 0; //Variable for Major Number 
+int major = 0; //Variable for Major Number
 
 #define MDISK_SECTOR_SIZE 512
 #define MBR_SIZE MDISK_SECTOR_SIZE
@@ -291,9 +291,9 @@ static blk_status_t dev_request(struct blk_mq_hw_ctx *hctx, const struct blk_mq_
             break;
     };
 
-#if 0 //simply and can be called from proprietary module 
+#if 0 //simply and can be called from proprietary module
     blk_mq_end_request(rq, status);
-#else //can set real processed bytes count 
+#else //can set real processed bytes count
     if (blk_update_request(req, status, nr_bytes)) //GPL-only symbol
         BUG();
     __blk_mq_end_request(req, status);
@@ -309,9 +309,13 @@ static struct blk_mq_ops my_queue_ops = {
 int device_setup(void) {
 
     /* Register block device */
-    c = register_blkdev(c, "my_disk");// major no. allocation
-    printk(KERN_ALERT
-    "Major Number is : %d", c);
+    major = register_blkdev(c, "my_disk");// major no. allocation
+
+    if(major <= 0) {
+        printk(KERN_WARNING "my_disk: unable to get major number\n");
+        return -EBUSY;
+    }
+    printk(KERN_ALERT "Major Number is : %d", major);
 
     if (mydisk_init())
         return -ENOMEM;
@@ -343,7 +347,12 @@ int device_setup(void) {
     // can't understand why we have here 8 minors
     device.gd = alloc_disk(8); // gendisk allocation
 
-    (device.gd)->major = c; // major no to gendisk
+    if(!device.gd) {
+        printk(KERN_INFO "mydisk: alloc_disk failure\n");
+        return -EBUSY;
+    }
+
+    (device.gd)->major = major; // major no to gendisk
     device.gd->first_minor = 0; // first minor of gendisk
 
     device.gd->fops = &fops;
