@@ -1,4 +1,5 @@
 NAME=vblkdev
+DNAME=ramvdisk
 MAKE=make
 KDIR?=/lib/modules/$(shell uname -r)/build
 # specify your number of logic cores
@@ -18,3 +19,12 @@ do:
 
 rm:
 	sudo rmmod $(NAME).ko
+
+vfat:
+	sudo mkfs.vfat $(DPART)
+
+ls:
+	@sudo lsblk | head -n 1;
+	@sudo lsblk | grep -E $(DNAME)
+
+.PHONY: clean do rm ls
