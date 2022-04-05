@@ -57,7 +57,20 @@ make clean # (опционально) чтобы не держать собра�
 
 ## Примеры использования
 
-// TODO: добавить примеры использования
+```
+make vfat DPART=/dev/ramvdisk1
+sudo mkdir /mnt/ramvdisk1
+sudo mount -t vfat /dev/ramvdisk1 /mnt/ramvdisk1
+echo "Hello, Virtual Disk in RAM!" > ./hello
+sudo cp ./hello /mnt/ramvdisk1/hello
+ls -l /mnt/ramvdisk1
+cat /mnt/ramvdisk1/hello
+sudo umount /mnt/ramvdisk1
+---
+итого 2
+-rwxr-xr-x 1 root root 28 апр  5 22:42 hello
+Hello, Virtual Disk in RAM!
+```
 
 ### Измерение скорости передачи данных
 
