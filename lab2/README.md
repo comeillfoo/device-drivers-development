@@ -61,8 +61,9 @@ make clean # (опционально) чтобы не держать собра�
 make vfat DPART=/dev/ramvdisk1
 sudo mkdir /mnt/ramvdisk1
 sudo mount -t vfat /dev/ramvdisk1 /mnt/ramvdisk1
-echo "Hello, Virtual Disk in RAM!" > ./hello
+echo "Hello, Virtual Disk in RAM!\n" > ./hello
 sudo cp ./hello /mnt/ramvdisk1/hello
+rm -f ./hello
 ls -l /mnt/ramvdisk1
 cat /mnt/ramvdisk1/hello
 sudo umount /mnt/ramvdisk1
