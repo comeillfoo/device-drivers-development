@@ -296,7 +296,7 @@ static blk_status_t do_request( struct blk_mq_hw_ctx* hctx, const struct blk_mq_
     __blk_mq_end_request( req, status );
 #endif
 
-    return BLK_STS_OK;
+    return status;
 }
 
 static struct blk_mq_ops ramv_queue_ops = {
