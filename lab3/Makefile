@@ -9,5 +9,12 @@ $(NAME)-objs := src/_$(NAME).o # add here additional object files for compiling
 
 all :
 	make -C $(KDIR) M=$(shell pwd) modules
+
+do:
+	insmod $(NAME).ko
+
+rm:
+	rmmod $(NAME).ko
+
 clean :
 	make -C $(KDIR) M=$(shell pwd) clean
