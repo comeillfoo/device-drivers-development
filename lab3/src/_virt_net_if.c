@@ -8,6 +8,8 @@
 #include <linux/ip.h>
 // #include <linux/udp.h>
 #include <linux/inet.h>
+#include <linux/if_vlan.h>
+
 
 static char* link = "enp0s3";
 module_param(link, charp, 0);
@@ -25,20 +27,23 @@ struct priv {
     struct net_device *parent;
 };
 
-static char check_frame(struct sk_buff *skb, unsigned char data_shift) {
+static char check_frame(struct sk_buff *skb) {
 	unsigned char *user_data_ptr = NULL;
     struct iphdr *ip = (struct iphdr *)skb_network_header(skb);
     // struct udphdr *udp = NULL;
     int data_len = 0;
     const u32 nr_destipv4 = in_aton( destipv4 );
+    const u16 protocol = ntohs(vlan_get_protocol(skb));
+    const u32 offset = ip->ihl << 2;
 
-    printk( KERN_INFO "Checking Frame: Protocol: %x, Version: %d, daddr: %d.%d.%d.%d\n", ip->protocol, ip->version,
+    printk( KERN_INFO "Checking Frame: Protocol: %x, Version: %d, daddr: %d.%d.%d.%d, listening daddr: %s\n", protocol, ip->version,
         ntohl(ip->daddr) >> 24, (ntohl(ip->daddr) >> 16) & 0x00FF,
-        (ntohl(ip->daddr) >> 8) & 0x0000FF, (ntohl(ip->daddr)) & 0x000000FF );
-	if ( (ip->version == IPVERSION) && (ip->daddr == nr_destipv4)) {
+        (ntohl(ip->daddr) >> 8) & 0x0000FF, (ntohl(ip->daddr)) & 0x000000FF, destipv4 );
+
+	if ( (protocol == ETH_P_IP) && (ip->version == IPVERSION) && (ip->daddr == nr_destipv4)) {
         // udp = (struct udphdr*)((unsigned char*)ip + (ip->ihl * 4));
-        data_len = ntohs(ip->tot_len) - sizeof(struct iphdr);
-        user_data_ptr = (unsigned char *)(skb->data + sizeof(struct iphdr) /* + sizeof(struct udphdr) */ ) + data_shift;
+        data_len = ip->tot_len - offset;
+        user_data_ptr = (unsigned char *)(skb->data + offset);
         memcpy(data, user_data_ptr, data_len);
         data[data_len] = '\0';
 
@@ -59,7 +64,7 @@ static char check_frame(struct sk_buff *skb, unsigned char data_shift) {
 static rx_handler_result_t handle_frame(struct sk_buff **pskb) {
    // if (child) {
         
-        	if (check_frame(*pskb, 0)) {
+        	if (check_frame(*pskb)) {
                 stats.rx_packets++;
                 stats.rx_bytes += (*pskb)->len;
             }
@@ -84,7 +89,7 @@ static int stop(struct net_device *dev) {
 static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev) {
     struct priv *priv = netdev_priv(dev);
 
-    if (check_frame(skb, 14)) {
+    if (check_frame(skb)) {
         stats.tx_packets++;
         stats.tx_bytes += skb->len;
     }
