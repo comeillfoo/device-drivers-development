@@ -6,10 +6,14 @@
 #include <linux/in.h>
 #include <net/arp.h>
 #include <linux/ip.h>
-#include <linux/udp.h>
+// #include <linux/udp.h>
+#include <linux/inet.h>
 
 static char* link = "enp0s3";
 module_param(link, charp, 0);
+
+static char* destipv4 = "192.168.0.1";
+module_param(destipv4, charp, 0);
 
 static char* ifname = "vni%d";
 static unsigned char data[1500];
@@ -24,20 +28,23 @@ struct priv {
 static char check_frame(struct sk_buff *skb, unsigned char data_shift) {
 	unsigned char *user_data_ptr = NULL;
     struct iphdr *ip = (struct iphdr *)skb_network_header(skb);
-    struct udphdr *udp = NULL;
+    // struct udphdr *udp = NULL;
     int data_len = 0;
+    const u32 nr_destipv4 = in_aton( destipv4 );
 
-	if (IPPROTO_UDP == ip->protocol) {
-        udp = (struct udphdr*)((unsigned char*)ip + (ip->ihl * 4));
-        data_len = ntohs(udp->len) - sizeof(struct udphdr);
-        user_data_ptr = (unsigned char *)(skb->data + sizeof(struct iphdr)  + sizeof(struct udphdr)) + data_shift;
+    printk( KERN_INFO "Checking Frame: Protocol: %x, Version: %d, daddr: %d.%d.%d.%d\n", ip->protocol, ip->version,
+        ntohl(ip->daddr) >> 24, (ntohl(ip->daddr) >> 16) & 0x00FF,
+        (ntohl(ip->daddr) >> 8) & 0x0000FF, (ntohl(ip->daddr)) & 0x000000FF );
+	if ( (ip->version == IPVERSION) && (ip->daddr == nr_destipv4)) {
+        // udp = (struct udphdr*)((unsigned char*)ip + (ip->ihl * 4));
+        data_len = ntohs(ip->tot_len) - sizeof(struct iphdr);
+        user_data_ptr = (unsigned char *)(skb->data + sizeof(struct iphdr) /* + sizeof(struct udphdr) */ ) + data_shift;
         memcpy(data, user_data_ptr, data_len);
         data[data_len] = '\0';
 
-        printk("Captured UDP datagram, saddr: %d.%d.%d.%d\n",
+        printk("Captured IPv4 packet, saddr: %d.%d.%d.%d; daddr: %d.%d.%d.%d\n",
                 ntohl(ip->saddr) >> 24, (ntohl(ip->saddr) >> 16) & 0x00FF,
-                (ntohl(ip->saddr) >> 8) & 0x0000FF, (ntohl(ip->saddr)) & 0x000000FF);
-        printk("daddr: %d.%d.%d.%d\n",
+                (ntohl(ip->saddr) >> 8) & 0x0000FF, (ntohl(ip->saddr)) & 0x000000FF,
                 ntohl(ip->daddr) >> 24, (ntohl(ip->daddr) >> 16) & 0x00FF,
                 (ntohl(ip->daddr) >> 8) & 0x0000FF, (ntohl(ip->daddr)) & 0x000000FF);
 
