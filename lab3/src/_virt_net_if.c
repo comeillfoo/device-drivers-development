@@ -18,7 +18,7 @@ static char* destipv4 = "192.168.0.1";
 module_param(destipv4, charp, 0);
 
 static char* ifname = "vni%d";
-static unsigned char data[1500];
+static unsigned char data[65535];
 
 static struct net_device_stats stats;
 
@@ -42,7 +42,7 @@ static char check_frame(struct sk_buff *skb) {
 
 	if ( (protocol == ETH_P_IP) && (ip->version == IPVERSION) && (ip->daddr == nr_destipv4)) {
         // udp = (struct udphdr*)((unsigned char*)ip + (ip->ihl * 4));
-        data_len = ip->tot_len - offset;
+        data_len = ntohs(ip->tot_len) - offset;
         user_data_ptr = (unsigned char *)(skb->data + offset);
         memcpy(data, user_data_ptr, data_len);
         data[data_len] = '\0';
