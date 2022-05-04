@@ -181,6 +181,7 @@ void __exit vni_exit(void) {
 module_init(vni_init);
 module_exit(vni_exit);
 
-MODULE_AUTHOR("Author");
+MODULE_AUTHOR("Lenar");
+MODULE_AUTHOR("Mickhail");
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Description");
+MODULE_DESCRIPTION("Module for capturing IPv4 packets addressed to exact destination");
