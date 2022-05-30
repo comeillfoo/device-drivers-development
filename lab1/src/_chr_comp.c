@@ -11,6 +11,9 @@ MODULE_AUTHOR( "Lenar" );
 MODULE_AUTHOR( "Michael" );
 MODULE_DESCRIPTION( "Kernel module consisting of /dev/var2 which do some simple calculations and store interim results and /proc/var2 which only stores interim results from /dev/var2" );
 
+static int nr_devices = 1;
+module_param(nr_devices, int, 0660);
+
 #define MOD_NAME "chr_comp"
 
 #define COMP_NAME "var2"
@@ -59,7 +62,7 @@ static const struct proc_ops proc_var2_ops = {
 
 
 static int __init init_chr_comp( void ) {
-  printk( KERN_INFO MOD_NAME ": module inited" );
+  printk( KERN_INFO MOD_NAME ": module inited with number of devices: %d", nr_devices );
 
   proc_var2_entry = proc_create( COMP_NAME, 0444, NULL, &proc_var2_ops ); // 0444 -> r--r--r--
   if ( proc_var2_entry == NULL )

@@ -4,6 +4,7 @@ DEV_MAJOR=410
 DEV_MINOR=0
 MAKE=make
 KDIR?=/lib/modules/$(shell uname -r)/build
+NR_DEVICES?=1
 # specify your number of logic cores
 nproc?=8
 
@@ -14,7 +15,7 @@ all:
 	$(MAKE) -j $(nproc) -C $(KDIR) M=$(shell pwd) modules
 
 load:
-	insmod $(NAME).ko
+	insmod $(NAME).ko nr_devices=$(NR_DEVICES)
 
 unload:
 	rmmod  $(NAME) -f
