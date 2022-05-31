@@ -1,4 +1,5 @@
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 #include <linux/fs.h>
 #include <linux/errno.h>
 #include <linux/types.h>
@@ -11,6 +12,9 @@
 #include <linux/string.h>
 #include <linux/lockdep.h>
 #include <linux/lockdep_types.h>
+
+int partcfg = 1;
+module_param(partcfg, int, 0660);
 
 #define DISK_NAME "ramvdisk"
 
@@ -99,8 +103,26 @@ static PartTable def_part_table = {
     }
 };
 
-static unsigned int def_log_part_br_abs_start_sector[] = {0xF000, 0x14000};
-static const PartTable def_log_part_table[] = {
+static unsigned int def_log_part_br_abs_start_sector_1[] = {0xF000};
+static const PartTable def_log_part_table_1[] = {
+    {
+        {
+            .boot_type =  0x00,
+            .start_head =  0xfe,
+            .start_sec =  0xff,
+            .start_cyl =  0xff,
+            .part_type =  0x83,
+            .end_head =  0xfe,
+            .end_sec =  0xff,
+            .end_cyl =  0xff,
+            .abs_start_sec =  0x1,
+            .sec_in_part =  0x9FFF
+        }
+    }
+};
+
+static unsigned int def_log_part_br_abs_start_sector_2[] = {0xF000, 0x14000};
+static const PartTable def_log_part_table_2[] = {
     {
         {
             .boot_type =  0x00,
@@ -143,6 +165,172 @@ static const PartTable def_log_part_table[] = {
     }
 };
 
+static unsigned int def_log_part_br_abs_start_sector_3[] = {0xF000, 0x12555, 0x15aaa};
+static const PartTable def_log_part_table_3[] = {
+    {
+        {
+            .boot_type =  0x00,
+            .start_head =  0xfe,
+            .start_sec =  0xff,
+            .start_cyl =  0xff,
+            .part_type =  0x83,
+            .end_head =  0xfe,
+            .end_sec =  0xff,
+            .end_cyl =  0xff,
+            .abs_start_sec =  0x1,
+            .sec_in_part =  0x3554
+        }, // link to the next
+        {
+            .boot_type =  0x00,
+            .start_head =  0xfe,
+            .start_sec =  0xff,
+            .start_cyl =  0xff,
+            .part_type =  0x05,
+            .end_head =  0xfe,
+            .end_sec =  0xff,
+            .end_cyl =  0xff,
+            .abs_start_sec =  0x3555,
+            .sec_in_part =  0x3555
+        }
+    },
+    {
+        {
+            .boot_type =  0x00,
+            .start_head =  0xfe,
+            .start_sec =  0xff,
+            .start_cyl =  0xff,
+            .part_type =  0x83,
+            .end_head =  0xfe,
+            .end_sec =  0xff,
+            .end_cyl =  0xff,
+            .abs_start_sec =  0x1,
+            .sec_in_part =  0x3554
+        }, // link to the next
+        {
+            .boot_type =  0x00,
+            .start_head =  0xfe,
+            .start_sec =  0xff,
+            .start_cyl =  0xff,
+            .part_type =  0x05,
+            .end_head =  0xfe,
+            .end_sec =  0xff,
+            .end_cyl =  0xff,
+            .abs_start_sec =  0x6aaa,
+            .sec_in_part =  0x3556
+        }
+    },
+    {
+        {
+            .boot_type =  0x00,
+            .start_head =  0xfe,
+            .start_sec =  0xff,
+            .start_cyl =  0xff,
+            .part_type =  0x83,
+            .end_head =  0xfe,
+            .end_sec =  0xff,
+            .end_cyl =  0xff,
+            .abs_start_sec =  0x1,
+            .sec_in_part =  0x3555
+        }
+    }
+};
+
+static unsigned int def_log_part_br_abs_start_sector_4[] = {0xF000, 0x11800, 0x14000, 0x16800};
+static const PartTable def_log_part_table_4[] = {
+    {
+        {
+            .boot_type =  0x00,
+            .start_head =  0xfe,
+            .start_sec =  0xff,
+            .start_cyl =  0xff,
+            .part_type =  0x83,
+            .end_head =  0xfe,
+            .end_sec =  0xff,
+            .end_cyl =  0xff,
+            .abs_start_sec =  0x1,
+            .sec_in_part =  0x27ff
+        }, // link to the next
+        {
+            .boot_type =  0x00,
+            .start_head =  0xfe,
+            .start_sec =  0xff,
+            .start_cyl =  0xff,
+            .part_type =  0x05,
+            .end_head =  0xfe,
+            .end_sec =  0xff,
+            .end_cyl =  0xff,
+            .abs_start_sec =  0x2800,
+            .sec_in_part =  0x2800
+        }
+    },
+    {
+        {
+            .boot_type =  0x00,
+            .start_head =  0xfe,
+            .start_sec =  0xff,
+            .start_cyl =  0xff,
+            .part_type =  0x83,
+            .end_head =  0xfe,
+            .end_sec =  0xff,
+            .end_cyl =  0xff,
+            .abs_start_sec =  0x1,
+            .sec_in_part =  0x27ff
+        }, // link to the next
+        {
+            .boot_type =  0x00,
+            .start_head =  0xfe,
+            .start_sec =  0xff,
+            .start_cyl =  0xff,
+            .part_type =  0x05,
+            .end_head =  0xfe,
+            .end_sec =  0xff,
+            .end_cyl =  0xff,
+            .abs_start_sec =  0x5000,
+            .sec_in_part =  0x2800
+        }
+    },
+    {
+        {
+            .boot_type =  0x00,
+            .start_head =  0xfe,
+            .start_sec =  0xff,
+            .start_cyl =  0xff,
+            .part_type =  0x83,
+            .end_head =  0xfe,
+            .end_sec =  0xff,
+            .end_cyl =  0xff,
+            .abs_start_sec =  0x1,
+            .sec_in_part =  0x27ff
+        }, // link to the next
+        {
+            .boot_type =  0x00,
+            .start_head =  0xfe,
+            .start_sec =  0xff,
+            .start_cyl =  0xff,
+            .part_type =  0x05,
+            .end_head =  0xfe,
+            .end_sec =  0xff,
+            .end_cyl =  0xff,
+            .abs_start_sec =  0x7800,
+            .sec_in_part =  0x2800
+        }
+    },
+    {
+        {
+            .boot_type =  0x00,
+            .start_head =  0xfe,
+            .start_sec =  0xff,
+            .start_cyl =  0xff,
+            .part_type =  0x83,
+            .end_head =  0xfe,
+            .end_sec =  0xff,
+            .end_cyl =  0xff,
+            .abs_start_sec =  0x1,
+            .sec_in_part =  0x27ff
+        }
+    }
+};
+
 static void copy_mbr( u8* disk ) {
     memset( disk, 0x0, MBR_SIZE );
     *(unsigned long*) ( disk + MBR_DISK_SIGNATURE_OFFSET ) = 0x36E5756D;
@@ -157,11 +345,34 @@ static void copy_br( u8* disk, int abs_start_sector, const PartTable* part_table
     *(unsigned short*) ( disk + BR_SIGNATURE_OFFSET ) = BR_SIGNATURE;
 }
 
-void copy_mbr_n_br( u8* disk ) {
+void copy_mbr_n_br( u8* disk, int config ) {
     int i;
+    int size = 1;
+    switch ( config ) {
+        case 2:
+            size = ARRAY_SIZE( def_log_part_table_2 ); break;
+        case 3:
+            size = ARRAY_SIZE( def_log_part_table_3 ); break;
+        case 4:
+            size = ARRAY_SIZE( def_log_part_table_4 ); break;
+        case 1:
+        default:
+            size = ARRAY_SIZE( def_log_part_table_1 );
+    }
+
     copy_mbr( disk );
-    for ( i = 0; i < ARRAY_SIZE( def_log_part_table ); ++i )
-        copy_br( disk, def_log_part_br_abs_start_sector[ i ], &def_log_part_table[ i ] );
+    for ( i = 0; i < size; ++i )
+        switch ( config ) {
+            case 2:
+                copy_br( disk, def_log_part_br_abs_start_sector_2[ i ], &def_log_part_table_2[ i ] ); break;
+            case 3:
+                copy_br( disk, def_log_part_br_abs_start_sector_3[ i ], &def_log_part_table_3[ i ] ); break;
+            case 4:
+                copy_br( disk, def_log_part_br_abs_start_sector_4[ i ], &def_log_part_table_4[ i ] ); break;
+            case 1:
+            default:
+                copy_br( disk, def_log_part_br_abs_start_sector_1[ i ], &def_log_part_table_1[ i ] ); break;
+        }
 }
 
 /* Structure associated with Block device*/
@@ -214,7 +425,7 @@ int ramvdisk_init(void) {
     }
 
     /* Setup its partition table */
-    copy_mbr_n_br(device.data);
+    copy_mbr_n_br(device.data, partcfg);
 
     return 0;
 }
