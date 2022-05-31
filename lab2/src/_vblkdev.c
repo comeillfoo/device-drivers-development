@@ -9,6 +9,8 @@
 #include <linux/bio.h>
 #include <linux/blk-mq.h>
 #include <linux/string.h>
+#include <linux/lockdep.h>
+#include <linux/lockdep_types.h>
 
 #define DISK_NAME "ramvdisk"
 
@@ -257,7 +259,7 @@ static int rb_transfer( struct request *req, unsigned int* nr_bytes ) {
     }
 
     if ( sector_offset != sector_cnt ) {
-        printk( KERN_ERR DISK_NAME ": bio info doesn't match with the request info" );
+        printk( KERN_ERR DISK_NAME ": bio info doesn't match with the request info\n" );
         return -EIO;
     }
 
@@ -313,7 +315,7 @@ int device_setup( void ) {
         return -EBUSY;
     }
 
-    printk( KERN_ALERT "Major Number is : %d", major );
+    printk( KERN_ALERT "Major Number is : %d\n", major );
 
     if ( ramvdisk_init() )
         return -ENOMEM;
@@ -332,31 +334,33 @@ int device_setup( void ) {
         return -ENOMEM;
 
     /* Allocate queue */
-    device.queue = blk_mq_init_queue( &(device.tag_set) ); // blk_init_queue( do_request, &device.lock);
-    if ( IS_ERR( device.queue) ) {
-        blk_mq_free_tag_set( &(device.tag_set) );
-        return -ENOMEM;
-    }
+    // device.queue = blk_( &(device.tag_set) ); // blk_init_queue( do_request, &device.lock);
+    // if ( IS_ERR( device.queue) ) {
+    //     blk_mq_free_tag_set( &(device.tag_set) );
+    //     return -ENOMEM;
+    // }
 
-    // blk_queue_logical_block_size( device.queue, MDISK_SECTOR_SIZE );
-    device.queue->queuedata = &device;
+    // // blk_queue_logical_block_size( device.queue, MDISK_SECTOR_SIZE );
+    // device.queue->queuedata = &device;
 
     /* Initialize gendisk */
     // can't understand why we have here 8 minors
-    device.gd = alloc_disk( 8 ); // gendisk allocation
-
+    device.gd = blk_mq_alloc_disk( &( device.tag_set ), &device ); // gendisk allocation
     if( !device.gd ) {
         printk(KERN_INFO DISK_NAME ": alloc_disk failure\n");
         return -EBUSY;
     }
 
+    device.queue = device.gd->queue;
+
     (device.gd)->major = major; // major no to gendisk
     device.gd->first_minor = 0; // first minor of gendisk
+    device.gd->minors = 8; // set strange 8 minors
 
     device.gd->fops = &fops;
     device.gd->private_data = &device;
     device.gd->queue = device.queue;
-    printk( KERN_INFO "THIS IS DEVICE SIZE %zu", device.size );
+    printk( KERN_INFO "THIS IS DEVICE SIZE %zu\n", device.size );
 
     /* Use buffer-safe functions */
     snprintf( ((device.gd)->disk_name), DISK_NAME_LEN, DISK_NAME );
@@ -375,20 +379,22 @@ static int __init ramvdisk_drive_init(void) {
 }
 
 void ramvdisk_cleanup( void ) {
-    vfree( device.data );
+    if ( device.data )
+        vfree( device.data );
 }
 
 void __exit ramvdisk_drive_exit(void) {
-    del_gendisk( device.gd );
-    put_disk( device.gd );
+    if ( device.gd ) {
+        del_gendisk( device.gd );
+        blk_cleanup_disk( device.gd );
+    }
+    // blk_mq_free_tag_set( &(device.tag_set) );
     
-    blk_cleanup_queue( device.queue );
-    blk_mq_free_tag_set( &(device.tag_set) );
-
     // cleanup device buffer in ram
     ramvdisk_cleanup( );
     
     unregister_blkdev( major, DISK_NAME );
+    printk( KERN_INFO ": module successfully unloaded\n" );
 }
 
 module_init( ramvdisk_drive_init );
