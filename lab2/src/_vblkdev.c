@@ -516,32 +516,8 @@ static struct blk_mq_ops ramv_queue_ops = {
     .queue_rq = do_request,
 };
 
-int device_setup( void ) {
-
-    /* Register block device */
-    major = register_blkdev( major, DISK_NAME );// major no. allocation
-
-    if( major <= 0 ) {
-        printk( KERN_WARNING DISK_NAME ": unable to get major number\n" );
-        return -EBUSY;
-    }
-
-    printk( KERN_ALERT "Major Number is : %d\n", major );
-
+static int device_gendisk_setup( void ) {
     if ( ramvdisk_init() )
-        return -ENOMEM;
-
-    // spin_lock_init( &device.lock ); // lock for queue
-
-    /* Initialize tag set */
-    device.tag_set.ops = &ramv_queue_ops;
-    device.tag_set.nr_hw_queues = 1;
-    device.tag_set.queue_depth = 128;
-    device.tag_set.numa_node = NUMA_NO_NODE;
-    device.tag_set.cmd_size = sizeof( struct ramv_disk_device );
-    device.tag_set.flags = BLK_MQ_F_SHOULD_MERGE;
-    device.tag_set.driver_data = &device;
-    if ( blk_mq_alloc_tag_set( &(device.tag_set) ) )
         return -ENOMEM;
 
     /* Allocate queue */
@@ -583,6 +559,34 @@ int device_setup( void ) {
     return 0;
 }
 
+int device_setup( void ) {
+
+    /* Register block device */
+    major = register_blkdev( major, DISK_NAME );// major no. allocation
+
+    if( major <= 0 ) {
+        printk( KERN_WARNING DISK_NAME ": unable to get major number\n" );
+        return -EBUSY;
+    }
+
+    printk( KERN_ALERT "Major Number is : %d\n", major );
+
+    // spin_lock_init( &device.lock ); // lock for queue
+
+    /* Initialize tag set */
+    device.tag_set.ops = &ramv_queue_ops;
+    device.tag_set.nr_hw_queues = 1;
+    device.tag_set.queue_depth = 128;
+    device.tag_set.numa_node = NUMA_NO_NODE;
+    device.tag_set.cmd_size = sizeof( struct ramv_disk_device );
+    device.tag_set.flags = BLK_MQ_F_SHOULD_MERGE;
+    device.tag_set.driver_data = &device;
+    if ( blk_mq_alloc_tag_set( &(device.tag_set) ) )
+        return -ENOMEM;
+
+    return device_gendisk_setup();
+}
+
 static int __init ramvdisk_drive_init(void) {
     int ret = 0;
     ret = device_setup( );
@@ -590,19 +594,19 @@ static int __init ramvdisk_drive_init(void) {
 }
 
 void ramvdisk_cleanup( void ) {
+    if ( device.gd ) {
+        del_gendisk( device.gd );
+    }
+    // blk_mq_free_tag_set( &(device.tag_set) );
     if ( device.data )
         vfree( device.data );
 }
 
 void __exit ramvdisk_drive_exit(void) {
-    if ( device.gd ) {
-        del_gendisk( device.gd );
-        blk_cleanup_disk( device.gd );
-    }
-    // blk_mq_free_tag_set( &(device.tag_set) );
-    
     // cleanup device buffer in ram
     ramvdisk_cleanup( );
+    if ( device.gd )
+        blk_cleanup_disk( device.gd );
     
     unregister_blkdev( major, DISK_NAME );
     printk( KERN_INFO ": module successfully unloaded\n" );
