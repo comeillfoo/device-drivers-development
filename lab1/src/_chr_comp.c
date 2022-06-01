@@ -156,21 +156,22 @@ static bool dev_create( int count, struct file_operations* fops ) {
         int j = i;
         for ( ; j >= 0; --j ) {
           printk( KERN_INFO MOD_NAME ": cannot create device %d\n", j );
-          cdev_del( &( var2_devices[ i ] ) );
-          class_destroy( device_class );
-          kfree( var2_devices );
-          unregister_chrdev_region( dev_var2_first_device_id, count ); // void can't check for the errors
+          cdev_del( &( var2_devices[ j ] ) );
         }
-        return false;
-      }
-    } else {
-      int j = i;
-      for ( ; j >= 0; --j ) {
-        printk( KERN_INFO MOD_NAME ": failed adding cdev %d to subsystem\n", j );
         class_destroy( device_class );
         kfree( var2_devices );
         unregister_chrdev_region( dev_var2_first_device_id, count ); // void can't check for the errors
+        return false;
       }
+    } else {
+      int j = i - 1;
+      for ( ; j >= 0; --j ) {
+        printk( KERN_INFO MOD_NAME ": failed adding cdev %d to subsystem\n", j );
+        cdev_del( &( var2_devices[ j ] ) );
+      }
+      class_destroy( device_class );
+      kfree( var2_devices );
+      unregister_chrdev_region( dev_var2_first_device_id, count ); // void can't check for the errors
       return false;
     }
     printk( KERN_INFO MOD_NAME ": var2_%d successfully added\n", i );
