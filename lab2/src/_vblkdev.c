@@ -12,6 +12,7 @@
 #include <linux/string.h>
 #include <linux/lockdep.h>
 #include <linux/lockdep_types.h>
+#include <linux/proc_fs.h> /* essential for procfs */
 
 int partcfg = 1;
 module_param(partcfg, int, 0660);
@@ -331,6 +332,19 @@ static const PartTable def_log_part_table_4[] = {
     }
 };
 
+static int     proc_disk_open( struct inode* ptr_inode, struct file* ptr_file );
+static ssize_t proc_disk_read( struct file* ptr_file, char __user* usr_buf, size_t length, loff_t* ptr_offset );
+static ssize_t proc_disk_write( struct file* ptr_file, const char __user* usr_buf, size_t length, loff_t* ptr_offset );
+static int     proc_disk_release( struct inode* ptr_inode, struct file* ptr_file );
+
+static struct proc_dir_entry* proc_disk_entry = NULL;
+static const struct proc_ops proc_disk_ops = {
+  .proc_open    = proc_disk_open,
+  .proc_read    = proc_disk_read,
+  .proc_write   = proc_disk_write,
+  .proc_release = proc_disk_release
+};
+
 static void copy_mbr( u8* disk ) {
     memset( disk, 0x0, MBR_SIZE );
     *(unsigned long*) ( disk + MBR_DISK_SIGNATURE_OFFSET ) = 0x36E5756D;
@@ -416,7 +430,7 @@ static struct block_device_operations fops = {
     .release = ramvdisk_release,
 };
 
-int ramvdisk_init(void) {
+int ramvdisk_init( int nr_config ) {
     device.size = MEMSIZE;
     ( device.data ) = vmalloc( MEMSIZE * MDISK_SECTOR_SIZE );
     if ( device.data == NULL ) {
@@ -425,7 +439,7 @@ int ramvdisk_init(void) {
     }
 
     /* Setup its partition table */
-    copy_mbr_n_br(device.data, partcfg);
+    copy_mbr_n_br(device.data, nr_config);
 
     return 0;
 }
@@ -516,8 +530,8 @@ static struct blk_mq_ops ramv_queue_ops = {
     .queue_rq = do_request,
 };
 
-static int device_gendisk_setup( void ) {
-    if ( ramvdisk_init() )
+static int device_gendisk_setup( int nr_config ) {
+    if ( ramvdisk_init( nr_config ) )
         return -ENOMEM;
 
     /* Allocate queue */
@@ -584,13 +598,7 @@ int device_setup( void ) {
     if ( blk_mq_alloc_tag_set( &(device.tag_set) ) )
         return -ENOMEM;
 
-    return device_gendisk_setup();
-}
-
-static int __init ramvdisk_drive_init(void) {
-    int ret = 0;
-    ret = device_setup( );
-    return ret;
+    return device_gendisk_setup( partcfg );
 }
 
 void ramvdisk_cleanup( void ) {
@@ -602,7 +610,53 @@ void ramvdisk_cleanup( void ) {
         vfree( device.data );
 }
 
+static int proc_disk_open( struct inode* ptr_inode, struct file* ptr_file ) {
+  printk( KERN_INFO DISK_NAME ": file /proc/%s opened\n", ptr_file->f_path.dentry->d_iname );
+  return 0;
+}
+
+static ssize_t proc_disk_read( struct file* ptr_file, char __user* usr_buf, size_t length, loff_t* ptr_offset ) {
+  if ( *ptr_offset > 0 ) return 0;
+  *ptr_offset += length;
+  return length;
+}
+
+static ssize_t proc_disk_write( struct file* ptr_file, const char __user* usr_buf, size_t length, loff_t* ptr_offset ) {
+  int nr_config;
+  size_t count = sscanf( usr_buf, "%d", &nr_config );
+
+  printk( KERN_INFO DISK_NAME ": proc_disk_write: count = %zu, nr_config, length = %zu\n", count, nr_config, length );
+  
+  if ( nr_config <= 0 || nr_config > 4 )
+    return -EINVAL;
+
+  if ( count == 1 ) {
+    // do disk reconfiguration
+    ramvdisk_cleanup();
+    printk( KERN_INFO DISK_NAME ": proc_disk_write: disk cleaned up\n" );
+    device_gendisk_setup( nr_config );
+    printk( KERN_INFO DISK_NAME ": proc_disk_write: disk reconfigured\n" );
+    return length;
+  }
+  return -EINVAL;
+}
+
+static int proc_disk_release( struct inode* ptr_inode, struct file* ptr_file ) {
+  printk( KERN_INFO DISK_NAME ": file /proc/%s closed\n", ptr_file->f_path.dentry->d_iname );
+  return 0;
+}
+
+static int __init ramvdisk_drive_init(void) {
+    int ret = 0;
+    proc_disk_entry = proc_create( DISK_NAME, 0666, NULL, &proc_disk_ops );
+    if ( proc_disk_entry == NULL )
+        return -EINVAL;
+    ret = device_setup( );
+    return ret;
+}
+
 void __exit ramvdisk_drive_exit(void) {
+    proc_remove( proc_disk_entry );
     // cleanup device buffer in ram
     ramvdisk_cleanup( );
     if ( device.gd )
