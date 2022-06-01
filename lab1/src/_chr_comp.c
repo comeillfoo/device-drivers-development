@@ -153,18 +153,24 @@ static bool dev_create( int count, struct file_operations* fops ) {
     if ( cdev_add( &( var2_devices[ i ] ), dev_inst, 1 ) == 0 ) {
       printk( KERN_INFO MOD_NAME ": cdev %d added to subsystem\n", i );
       if ( device_create( device_class, NULL, dev_inst, NULL, DEV_NAME "_%d", i ) == NULL ) {
-        printk( KERN_INFO MOD_NAME ": cannot create device %d\n", i );
-        cdev_del( &( var2_devices[ i ] ) );
-        class_destroy( device_class );
-        kfree( var2_devices );
-        unregister_chrdev_region( dev_var2_first_device_id, count ); // void can't check for the errors
+        int j = i;
+        for ( ; j >= 0; --j ) {
+          printk( KERN_INFO MOD_NAME ": cannot create device %d\n", j );
+          cdev_del( &( var2_devices[ i ] ) );
+          class_destroy( device_class );
+          kfree( var2_devices );
+          unregister_chrdev_region( dev_var2_first_device_id, count ); // void can't check for the errors
+        }
         return false;
       }
     } else {
-      printk( KERN_INFO MOD_NAME ": failed adding cdev to subsystem\n" );
-      class_destroy( device_class );
-      kfree( var2_devices );
-      unregister_chrdev_region( dev_var2_first_device_id, count ); // void can't check for the errors
+      int j = i;
+      for ( ; j >= 0; --j ) {
+        printk( KERN_INFO MOD_NAME ": failed adding cdev %d to subsystem\n", j );
+        class_destroy( device_class );
+        kfree( var2_devices );
+        unregister_chrdev_region( dev_var2_first_device_id, count ); // void can't check for the errors
+      }
       return false;
     }
     printk( KERN_INFO MOD_NAME ": var2_%d successfully added\n", i );
